@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TOPOGRAPHIE - MODULE 7</title>
+<style>
+:root { --orange:#ff6600; --noir:#222; --gris:#f3f3f3; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--gris); color: var(--noir); margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:16px; }
+.banner { background:var(--noir); color:#fff; padding:10px; border-radius:10px; text-align:center; font-weight:700; width:100%; max-width:820px; margin-bottom:15px; }
+h1 { color:var(--orange); text-align:center; margin:8px 0; }
+.subtitle { color:#555; text-align:center; margin-bottom:18px; }
+.question { background:#fff; padding:20px; margin:10px auto; border-left:8px solid var(--orange); border-radius:10px; box-shadow:0 3px 6px rgba(0,0,0,0.08); width:100%; max-width:820px; text-align:center; }
+.question p { font-weight:600; }
+.answers input[type="number"] { width:90%; max-width:420px; padding:10px; font-size:1.1rem; border-radius:6px; border:1px solid #ccc; margin-top:10px; }
+button { background:var(--orange); color:#fff; border:none; padding:10px 18px; border-radius:8px; font-size:1rem; cursor:pointer; margin-top:15px; }
+button[disabled] { opacity:0.5; cursor:not-allowed; }
+button:hover:not([disabled]) { background:#e65c00; }
+table { width:100%; border-collapse:collapse; margin-top:15px; }
+th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+thead { background:#f0f0f0; }
+@media (max-width:600px){ .answers input{ width:100%; } }
+</style>
+</head>
+<body>
+
+<div class="banner">📚 TOPOGRAPHIE - MODULE 7 📚</div>
+<h1 id="pageTitle">Le nivellement mixte (cheminement + rayonnement)</h1>
+<p class="subtitle" id="quizSubtitle"></p>
+
+<div id="intro" class="intro">
+  <div id="testTypeSelection" class="question">
+    <p style="font-weight:600; font-size:1.1rem;">Sélectionnez le type de test</p>
+    <div style="margin-top:20px;">
+      <button id="exercice3Btn" style="background:#9C27B0; margin:10px; padding:15px 25px; font-size:1.05rem; width:250px;">📕 Exercice 1</button>
+      <button id="exercice2Btn" style="background:#0066cc; margin:10px; padding:15px 25px; font-size:1.05rem; width:250px;">📘 Exercice 2</button>
+      <button id="exercice1Btn" style="background:#27AE60; margin:10px; padding:15px 25px; font-size:1.05rem; width:250px;">📗 Exercice 3</button>
+      <button id="evaluationBtn" style="background:#ff6600; margin:10px; padding:15px 25px; font-size:1.05rem; width:250px;">🎯 Évaluation</button>
+    </div>
+  </div>
+  
+  <div id="nameSelection" class="question" style="display:none;">
+    <p id="welcomeTitle"></p>
+    <p id="welcomeText"></p>
+    <input id="candidateName" type="text" placeholder="Nom de l'élève">
+    <div style="margin-top:12px;">
+      <button id="startBtn" disabled>➡️ Suivant</button>
+    </div>
+  </div>
+</div>
+
+<div id="quiz" style="display:none; width:100%; max-width:820px;"></div>
+<div class="control-container" style="text-align:center;">
+  <button id="restartBtn" style="display:none;">Retour accueil</button>
+</div>
+
+<script>
+const i18n = {
+  welcome: "Bienvenue",
+  enterName: "Merci d'indiquer votre nom avant de commencer :",
+  nextBtn: "➡️ Suivant",
+  finishBtn: "🏁 Terminer",
+  questions: "Répondez à {count} questions",
+  candidate: "Candidat : ",
+  date: "Date : ",
+  result: "Résultat : ",
+  question: "⚙️ Question {num} / {total} : {text}"
+};
+
+const AUTHORIZED_CANDIDATES = {
+  "Professeur": ["MARINO","CHARDON","CHIOTTI","MATHIEU","MAUSSION"],
+  "1 cetpc": ["FONELLERAS","BONTEMPS","BRIATORE","BUCCIO","DIONISI","ERETEO","GARNERO","GRISONI","GUENEAU","HADANGUE","LACROIX","LEJEUNE","MAAZAOUI","MARTINEAU","MONELLO","PI-BUTHION","QUILICO","REMY","SANTIAGO","SCIARAFFA","THEVENET","TRUFFE","VILLEROY"],
+  "2 cetpc": ["ALBERT","AUDISIO","BABA","BERTOLOTTO","BOUCHEE","BOUFFART","BOURGUIGNON","BOUSQUET","CAPPADORO","COLPAERT","CULMINE","DOYEN","GAALOUL","GEORGE","GUEURUNURIAN","MONTEIRO","PAGE","PALAGONIA","PELLET","PONZO","PRUVOST","RICHARD","TETI"]
+};
+
+const allThemes = [
+  { name:"Nivellement mixte - Cheminement + Rayonnement", count:1, questions:Array(20).fill({ text:"Calculer l'altitude de tous les points" }) },
+  { name:"Nivellement mixte difficile", count:1, questions:Array(20).fill({ text:"Calculer l'altitude de tous les points" }) },
+  { name:"Nivellement mixte complexe", count:1, questions:Array(20).fill({ text:"Calculer l'altitude de tous les points" }) }
+];
+
+let selectedQuestions = [];
+let currentIndex = 0;
+let userAnswers = [];
+let candidateName = "";
+let score = 0;
+let quizName = "MODULE 7 - NIVELLEMENT MIXTE";
+let testType = "";
+let questionCount = 1;
+let themeFilter = null;
+const DOM = {
+  intro: document.getElementById("intro"),
+  quiz: document.getElementById("quiz"),
+  startBtn: document.getElementById("startBtn"),
+  restartBtn: document.getElementById("restartBtn"),
+  candidateName: document.getElementById("candidateName"),
+  quizSubtitle: document.getElementById("quizSubtitle"),
+  pageTitle: document.getElementById("pageTitle"),
+  testTypeSelection: document.getElementById("testTypeSelection"),
+  nameSelection: document.getElementById("nameSelection"),
+  exercice2Btn: document.getElementById("exercice2Btn"),
+  exercice3Btn: document.getElementById("exercice3Btn"),  exercice1Btn: document.getElementById("exercice1Btn"),  evaluationBtn: document.getElementById("evaluationBtn")
+};
+
+function shuffle(arr){ return arr.sort(()=>Math.random()-0.5); }
+
+// Génération de lectures finissant par 0, 2, 5 ou 7 (mm) avec contrainte d'unicité
+function randLectureEnding(){
+  const allowed=[0,2,5,7];
+  const base=Math.floor(Math.random()*(399-10+1))+10; // base des dizaines: 10..399 -> 100..3990
+  const digit=allowed[Math.floor(Math.random()*allowed.length)];
+  return base*10+digit; // valeurs entre 100 et 3997
+}
+function uniqueLecture(exclude){
+  let v;
+  do { v=randLectureEnding(); } while(exclude.includes(v));
+  return v;
+}
+
+function getRandomQuestionsIntercalated(filterTheme = null) {
+  const themesToUse = filterTheme ? allThemes.filter(t => t.name === filterTheme) : allThemes;
+  const questionsPerTheme = questionCount / themesToUse.length;
+  const themeQuestions = themesToUse.map(theme => {
+    const shuffled = shuffle([...theme.questions]);
+    return shuffled.slice(0, questionsPerTheme).map(q => ({ ...q, theme: theme.name }));
+  });
+
+  const finalList = [];
+  let remaining = true;
+  let index = 0;
+
+  while (remaining) {
+    remaining = false;
+    for (const questions of themeQuestions) {
+      if (index < questions.length) {
+        finalList.push(questions[index]);
+        remaining = true;
+      }
+    }
+    index++;
+  }
+  return finalList;
+}
+
+function renderQuestion(){
+  const q = selectedQuestions[currentIndex];
+  let lecture1, lecture2, alt1;
+  let photoHTML = '';
+
+  if(q.theme === "Nivellement mixte - Cheminement + Rayonnement"){
+    // Génération des lectures pour les stations 1 à 5 (cheminement)
+    const lectureRef = uniqueLecture([]);
+    const lecturePt1_st1 = uniqueLecture([lectureRef]);
+    const lecturePt1_st2 = uniqueLecture([lectureRef, lecturePt1_st1]);
+    const lecturePt2_st2 = uniqueLecture([lectureRef, lecturePt1_st1, lecturePt1_st2]);
+    const lecturePt2_st3 = uniqueLecture([lectureRef, lecturePt1_st1, lecturePt1_st2, lecturePt2_st2]);
+    const lecturePt3_st3 = uniqueLecture([lectureRef, lecturePt1_st1, lecturePt1_st2, lecturePt2_st2, lecturePt2_st3]);
+    const lecturePt3_st4 = uniqueLecture([lectureRef, lecturePt1_st1, lecturePt1_st2, lecturePt2_st2, lecturePt2_st3, lecturePt3_st3]);
+    const lecturePt4_st4 = uniqueLecture([lectureRef, lecturePt1_st1, lecturePt1_st2, lecturePt2_st2, lecturePt2_st3, lecturePt3_st3, lecturePt3_st4]);
+    
+    // Station 5 (nouvelle)
+    const lecturePt4_st5 = uniqueLecture([lectureRef, lecturePt1_st1, lecturePt1_st2, lecturePt2_st2, lecturePt2_st3, lecturePt3_st3, lecturePt3_st4, lecturePt4_st4]);
+    const lecturePt5_st5 = uniqueLecture([lectureRef, lecturePt1_st1, lecturePt1_st2, lecturePt2_st2, lecturePt2_st3, lecturePt3_st3, lecturePt3_st4, lecturePt4_st4, lecturePt4_st5]);
+    
+    // Station 6 - Rayonnement (lecture arrière sur point 5, puis lectures avant sur points 6, 7, 8, 9)
+    const lecturePt5_st6_arriere = uniqueLecture([lecturePt5_st5]);
+    const lecturePt6_st6 = uniqueLecture([lecturePt5_st6_arriere]);
+    const lecturePt7_st6 = uniqueLecture([lecturePt5_st6_arriere, lecturePt6_st6]);
+    const lecturePt8_st6 = uniqueLecture([lecturePt5_st6_arriere, lecturePt6_st6, lecturePt7_st6]);
+    const lecturePt9_st6 = uniqueLecture([lecturePt5_st6_arriere, lecturePt6_st6, lecturePt7_st6, lecturePt8_st6]);
+    
+    const altRef = Math.floor(Math.random()*(1500-100+1))+100;
+    lecture1=lectureRef; lecture2=lecturePt1_st1; alt1=altRef;
+    
+    q.lecture3 = lecturePt1_st2;
+    q.lecture4 = lecturePt2_st2;
+    q.lecture5 = lecturePt2_st3;
+    q.lecture6 = lecturePt3_st3;
+    q.lecture7 = lecturePt3_st4;
+    q.lecture8 = lecturePt4_st4;
+    q.lecture9 = lecturePt4_st5;
+    q.lecture10 = lecturePt5_st5;
+    q.lecture11 = lecturePt5_st6_arriere;
+    q.lecture12 = lecturePt6_st6;
+    q.lecture13 = lecturePt7_st6;
+    q.lecture14 = lecturePt8_st6;
+    q.lecture15 = lecturePt9_st6;
+    
+    const photoUrls = [
+      "https://raw.githubusercontent.com/CETPC-Christophe/module-7-Nivellement-mixte/refs/heads/main/mo7exer1.png"
+    ];
+    const randomPhoto = photoUrls[0];
+    photoHTML=`<img src="${randomPhoto}" alt="Illustration" style="max-width:60%; margin-bottom:15px; border-radius:6px;">`;
+  } else if(q.theme === "Nivellement mixte difficile"){
+    // Génération des lectures avec structure imposée
+    const lectureRef = uniqueLecture([]); // Station 1 arrière
+    const fs1_st1 = uniqueLecture([lectureRef]);
+
+    // Station 2 : back sur point 1, fores sur 2 et 3
+    const bs21 = uniqueLecture([lectureRef, fs1_st1]);
+    const fs22 = uniqueLecture([bs21, fs1_st1]);
+    const fs23 = uniqueLecture([bs21, fs22, fs1_st1]);
+
+    // Station 3 : back 2, fores 4 et 5
+    const bs32 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23]);
+    const fs34 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32]);
+    const fs35 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34]);
+
+    // Station 4 : back 5, fore 6
+    const bs45 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35]);
+    const fs46 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45]);
+
+    // Station 5 : back 6, fores 7,8,9
+    const bs56 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45,fs46]);
+    const fs57 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45,fs46,bs56]);
+    const fs58 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45,fs46,bs56,fs57]);
+    const fs59 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45,fs46,bs56,fs57,fs58]);
+
+    // Station 6 : back 8, fores 9,10,11,12
+    const bs68 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45,fs46,bs56,fs57,fs58,fs59]);
+    const fs610 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45,fs46,bs56,fs57,fs58,fs59,bs68]);
+    const fs611 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45,fs46,bs56,fs57,fs58,fs59,bs68,fs610]);
+    const fs612 = uniqueLecture([lectureRef,fs1_st1,bs21,fs22,fs23,bs32,fs34,fs35,bs45,fs46,bs56,fs57,fs58,fs59,bs68,fs610,fs611]);
+
+    const altRef = Math.floor(Math.random()*(1500-100+1))+100;
+    lecture1=lectureRef; lecture2=fs1_st1; alt1=altRef;
+
+    q.lecture3 = bs21;
+    q.lecture4 = fs22;
+    q.lecture5 = fs23;
+    q.lecture6 = bs32;
+    q.lecture7 = fs34;
+    q.lecture8 = fs35;
+    q.lecture9 = bs45;
+    q.lecture10 = fs46;
+    q.lecture11 = bs56;
+    q.lecture12 = fs57;
+    q.lecture13 = fs58;
+    q.lecture14 = fs59;
+    q.lecture15 = bs68;
+    q.lecture16 = fs610;
+    q.lecture17 = fs611;
+    q.lecture18 = fs612;
+
+    const photoUrls = [
+      "https://raw.githubusercontent.com/CETPC-Christophe/module-7-Nivellement-mixte/refs/heads/main/mo7exer2.png"
+    ];
+    const randomPhoto = photoUrls[0];
+    photoHTML=`<img src="${randomPhoto}" alt="Illustration" style="max-width:60%; margin-bottom:15px; border-radius:6px;">`;
+  } else if(q.theme === "Nivellement mixte complexe"){
+    // Génération des lectures avec structure imposée (21 points)
+    const lectureRef = uniqueLecture([]);
+    // Station 1 : Ref / 2 / 3
+    const fs12 = uniqueLecture([lectureRef]);
+    const fs13 = uniqueLecture([lectureRef, fs12]);
+
+    // Station 2 : back 3, fores A / 5 / 6
+    const bs23 = uniqueLecture([lectureRef,fs12,fs13]);
+    const fsA = uniqueLecture([lectureRef,fs12,fs13,bs23]);
+    const fs25 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA]);
+    const fs26 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25]);
+
+    // Station 3 : back 5, fores 7 / C / E
+    const bs35 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26]);
+    const fs37 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35]);
+    const fsC = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37]);
+    const fsE = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC]);
+
+    // Station 4 : back A, fores 4 / 8 / 9
+    const bsA4 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE]);
+    const fs44 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4]);
+    const fs48 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44]);
+    const fs49 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44,fs48]);
+
+    // Station 5 : back 8, fores F / 10
+    const bs58 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44,fs48,fs49]);
+    const fsF = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44,fs48,fs49,bs58]);
+    const fs510 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44,fs48,fs49,bs58,fsF]);
+
+    // Station 6 : back 6, fores B / 20 / 21
+    const bs66 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44,fs48,fs49,bs58,fsF,fs510]);
+    const fsB = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44,fs48,fs49,bs58,fsF,fs510,bs66]);
+    const fs620 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44,fs48,fs49,bs58,fsF,fs510,bs66,fsB]);
+    const fs621 = uniqueLecture([lectureRef,fs12,fs13,bs23,fsA,fs25,fs26,bs35,fs37,fsC,fsE,bsA4,fs44,fs48,fs49,bs58,fsF,fs510,bs66,fsB,fs620]);
+
+    const altRef = Math.floor(Math.random()*(1500-100+1))+100;
+    lecture1=lectureRef; lecture2=fs12; alt1=altRef;
+
+    q.lecture3 = fs13;
+    q.lecture4 = bs23;
+    q.lecture5 = fsA;
+    q.lecture6 = fs25;
+    q.lecture7 = fs26;
+    q.lecture8 = bs35;
+    q.lecture9 = fs37;
+    q.lecture10 = fsC;
+    q.lecture11 = fsE;
+    q.lecture12 = bsA4;
+    q.lecture13 = fs44;
+    q.lecture14 = fs48;
+    q.lecture15 = fs49;
+    q.lecture16 = bs58;
+    q.lecture17 = fsF;
+    q.lecture18 = fs510;
+    q.lecture19 = bs66;
+    q.lecture20 = fsB;
+    q.lecture21 = fs620;
+    q.lecture22 = fs621;
+
+    const photoUrls = [
+      "https://raw.githubusercontent.com/CETPC-Christophe/module-7-Nivellement-mixte/refs/heads/main/mo7exer3.png"
+    ];
+    const randomPhoto = photoUrls[Math.floor(Math.random()*photoUrls.length)];
+    photoHTML=`<img src="${randomPhoto}" alt="Illustration" style="max-width:60%; margin-bottom:15px; border-radius:6px;">`;
+  }
+
+  q.lecture1 = lecture1; q.lecture2 = lecture2; q.alt1 = alt1;
+
+  DOM.quiz.innerHTML = `
+    <div class="question">
+      <p>${i18n.question.replace("{num}",currentIndex+1).replace("{total}",selectedQuestions.length).replace("{text}",q.text)}</p>
+      ${photoHTML}
+      <div class="answers">
+        ${q.theme==="Nivellement mixte - Cheminement + Rayonnement"?`
+          <p style="color:#ff6600; font-style:italic; margin-bottom:5px;">Altitude de référence = <strong>${alt1} m</strong></p>
+          <p style="color:#666; font-style:italic; margin-bottom:15px;">Valeurs du tableau en mm</p>
+          <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+            <thead>
+              <tr style="background:#333; color:white;">
+                <th>Station</th>
+                <th>Lecture arrière (mm)</th>
+                <th>Lecture avant (mm)</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 1</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Référence = ${lecture1}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 1 = ${lecture2}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Cheminement</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 2</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 1 = ${q.lecture3}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 2 = ${q.lecture4}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Cheminement</td>
+              </tr>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 3</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 2 = ${q.lecture5}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 3 = ${q.lecture6}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Cheminement</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 4</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 3 = ${q.lecture7}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 4 = ${q.lecture8}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Cheminement</td>
+              </tr>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 5</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 4 = ${q.lecture9}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 5 = ${q.lecture10}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Cheminement</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;" rowspan="4">Station 6<br><span style="font-size:0.85em; color:#666;">(Rayonnement)</span><br><span style="font-size:0.75em; color:#666;">Arrière sur Pt5 = ${q.lecture11} mm</span></td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#999; font-weight:600;">-</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 6 = ${q.lecture12}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Rayonnement</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#999; font-weight:600;">-</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 7 = ${q.lecture13}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Rayonnement</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#999; font-weight:600;">-</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 8 = ${q.lecture14}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Rayonnement</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#999; font-weight:600;">-</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 9 = ${q.lecture15}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Rayonnement</td>
+              </tr>
+            </tbody>
+          </table>
+        `: q.theme==="Nivellement mixte difficile"?`
+          <p style="color:#ff6600; font-style:italic; margin-bottom:5px;">Altitude de référence = <strong>${alt1} m</strong></p>
+          <p style="color:#666; font-style:italic; margin-bottom:15px;">Cheminement imposé (valeurs en mm)</p>
+          <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+            <thead>
+              <tr style="background:#333; color:white;">
+                <th>Station</th>
+                <th>Lecture arrière</th>
+                <th>Lecture avant</th>
+                <th>Points visés</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 1</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Réf = ${lecture1}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#ff6600; font-weight:600;">Point 1 = ${lecture2}</td>
+                <td style="border:1px solid #ccc; padding:8px;">Réf / 1</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 2</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 1 = ${q.lecture3}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">P2 = ${q.lecture4} / P3 = ${q.lecture5}</td>
+                <td style="border:1px solid #ccc; padding:8px;">1 / 2 / 3</td>
+              </tr>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 3</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 2 = ${q.lecture6}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">P4 = ${q.lecture7} / P5 = ${q.lecture8}</td>
+                <td style="border:1px solid #ccc; padding:8px;">2 / 4 / 5</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 4</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 5 = ${q.lecture9}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 6 = ${q.lecture10}</td>
+                <td style="border:1px solid #ccc; padding:8px;">5 / 6</td>
+              </tr>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 5</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 6 = ${q.lecture11}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">P7 = ${q.lecture12} / P8 = ${q.lecture13} / P9 = ${q.lecture14}</td>
+                <td style="border:1px solid #ccc; padding:8px;">6 / 7 / 8 / 9</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:8px; font-weight:600;">Station 6</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">Point 8 = ${q.lecture15}</td>
+                <td style="border:1px solid #ccc; padding:8px; text-align:center; color:#0066ff; font-weight:600;">P10 = ${q.lecture16} / P11 = ${q.lecture17} / P12 = ${q.lecture18}</td>
+                <td style="border:1px solid #ccc; padding:8px;">8 / 10 / 11 / 12</td>
+              </tr>
+            </tbody>
+          </table>
+        `:''}
+        
+        ${q.theme==="Nivellement mixte - Cheminement + Rayonnement"?`
+          <p style="margin-top:15px; font-weight:600; color:#ff6600;">CHEMINEMENT</p>
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 1</p>
+          <input type="number" step="0.001" id="answerField1" placeholder="Altitude du point 1 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 2</p>
+          <input type="number" step="0.001" id="answerField2" placeholder="Altitude du point 2 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 3</p>
+          <input type="number" step="0.001" id="answerField3" placeholder="Altitude du point 3 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 4</p>
+          <input type="number" step="0.001" id="answerField4" placeholder="Altitude du point 4 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 5</p>
+          <input type="number" step="0.001" id="answerField5" placeholder="Altitude du point 5 (m)">
+          
+          <p style="margin-top:20px; font-weight:600; color:#0066ff;">RAYONNEMENT depuis Station 6</p>
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 6</p>
+          <input type="number" step="0.001" id="answerField6" placeholder="Altitude du point 6 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 7</p>
+          <input type="number" step="0.001" id="answerField7" placeholder="Altitude du point 7 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 8</p>
+          <input type="number" step="0.001" id="answerField8" placeholder="Altitude du point 8 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 9</p>
+          <input type="number" step="0.001" id="answerField9" placeholder="Altitude du point 9 (m)">
+        `: q.theme==="Nivellement mixte difficile"?`
+          <p style="margin-top:15px; font-weight:600; color:#ff6600;">Points à calculer</p>
+          ${[1,2,3,4,5,6,7,8,9].map(n=>`
+            <p style="margin-top:10px; font-weight:600;">Altitude du point ${n}</p>
+            <input type="number" step="0.001" id="answerField${n}" placeholder="Altitude du point ${n} (m)">
+          `).join('')}
+
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 10</p>
+          <input type="number" step="0.001" id="answerField10" placeholder="Altitude du point 10 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 11</p>
+          <input type="number" step="0.001" id="answerField11" placeholder="Altitude du point 11 (m)">
+          <p style="margin-top:10px; font-weight:600;">Altitude du point 12</p>
+          <input type="number" step="0.001" id="answerField12" placeholder="Altitude du point 12 (m)">
+        `: q.theme==="Nivellement mixte complexe"?`
+          <p style="color:#ff6600; font-style:italic; margin-bottom:5px;">Altitude de référence = <strong>${alt1} m</strong></p>
+          <p style="color:#666; font-style:italic; margin-bottom:15px;">Cheminement complexe avec rayonnements (valeurs en mm)</p>
+          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:0.85rem;">
+            <thead>
+              <tr style="background:#333; color:white;">
+                <th>Station</th>
+                <th>Lecture arrière</th>
+                <th>Lecture avant</th>
+                <th>Points visés</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:6px; font-weight:600;">Station 1</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#ff6600; font-weight:600;">Réf = ${lecture1}</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#ff6600; font-weight:600;">2 = ${lecture2} / 3 = ${q.lecture3}</td>
+                <td style="border:1px solid #ccc; padding:6px;">Réf / 2 / 3</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:6px; font-weight:600;">Station 2</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">3 = ${q.lecture4}</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">A = ${q.lecture5} / 5 = ${q.lecture6} / 6 = ${q.lecture7}</td>
+                <td style="border:1px solid #ccc; padding:6px;">3 / A / 5 / 6</td>
+              </tr>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:6px; font-weight:600;">Station 3</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">5 = ${q.lecture8}</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">7 = ${q.lecture9} / C = ${q.lecture10} / E = ${q.lecture11}</td>
+                <td style="border:1px solid #ccc; padding:6px;">5 / 7 / C / E</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:6px; font-weight:600;">Station 4</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">A = ${q.lecture12}</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">4 = ${q.lecture13} / 8 = ${q.lecture14} / 9 = ${q.lecture15}</td>
+                <td style="border:1px solid #ccc; padding:6px;">A / 4 / 8 / 9</td>
+              </tr>
+              <tr style="background:#f9f9f9;">
+                <td style="border:1px solid #ccc; padding:6px; font-weight:600;">Station 5</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">8 = ${q.lecture16}</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">F = ${q.lecture17} / 10 = ${q.lecture18}</td>
+                <td style="border:1px solid #ccc; padding:6px;">8 / F / 10</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #ccc; padding:6px; font-weight:600;">Station 6</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">6 = ${q.lecture19}</td>
+                <td style="border:1px solid #ccc; padding:6px; text-align:center; color:#0066ff; font-weight:600;">B = ${q.lecture20} / 20 = ${q.lecture21} / 21 = ${q.lecture22}</td>
+                <td style="border:1px solid #ccc; padding:6px;">6 / B / 20 / 21</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <p style="margin-top:20px; font-weight:600; color:#ff6600;">Points à calculer</p>
+          <p style="margin-top:10px; font-weight:600;">Point 2</p>
+          <input type="number" step="0.001" id="answerField1" placeholder="Altitude du point 2 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 3</p>
+          <input type="number" step="0.001" id="answerField2" placeholder="Altitude du point 3 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point A</p>
+          <input type="number" step="0.001" id="answerField3" placeholder="Altitude du point A (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 5</p>
+          <input type="number" step="0.001" id="answerField4" placeholder="Altitude du point 5 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 6</p>
+          <input type="number" step="0.001" id="answerField5" placeholder="Altitude du point 6 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 7</p>
+          <input type="number" step="0.001" id="answerField6" placeholder="Altitude du point 7 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point C</p>
+          <input type="number" step="0.001" id="answerField7" placeholder="Altitude du point C (m)">
+          <p style="margin-top:10px; font-weight:600;">Point E</p>
+          <input type="number" step="0.001" id="answerField8" placeholder="Altitude du point E (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 4</p>
+          <input type="number" step="0.001" id="answerField9" placeholder="Altitude du point 4 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 8</p>
+          <input type="number" step="0.001" id="answerField10" placeholder="Altitude du point 8 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 9</p>
+          <input type="number" step="0.001" id="answerField11" placeholder="Altitude du point 9 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point F</p>
+          <input type="number" step="0.001" id="answerField12" placeholder="Altitude du point F (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 10</p>
+          <input type="number" step="0.001" id="answerField13" placeholder="Altitude du point 10 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point B</p>
+          <input type="number" step="0.001" id="answerField14" placeholder="Altitude du point B (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 20</p>
+          <input type="number" step="0.001" id="answerField15" placeholder="Altitude du point 20 (m)">
+          <p style="margin-top:10px; font-weight:600;">Point 21</p>
+          <input type="number" step="0.001" id="answerField16" placeholder="Altitude du point 21 (m)">
+        `:''}
+      <div style="margin-top:20px;">
+        <button id="nextBtn" disabled style="display:block; width:100%; max-width:420px; margin:0 auto;">${currentIndex===selectedQuestions.length-1 ? i18n.finishBtn : i18n.nextBtn}</button>
+        <button id="backToHomeBtn" style="background:#666; display:block; width:100%; max-width:420px; margin:10px auto 0 auto;">🏠 RETOUR EXERCICES</button>
+      </div>
+    </div>
+  `;
+
+  const nextBtn=document.getElementById("nextBtn");
+  const backToHomeBtn=document.getElementById("backToHomeBtn");
+  backToHomeBtn.onclick=()=>{
+    if(confirm("Êtes-vous sûr de vouloir quitter cet exercice ? Votre progression sera perdue.")){
+      showIntro();
+    }
+  };
+  
+  if(q.theme==="Nivellement mixte - Cheminement + Rayonnement"){
+    const answerField1=document.getElementById("answerField1");
+    const answerField2=document.getElementById("answerField2");
+    const answerField3=document.getElementById("answerField3");
+    const answerField4=document.getElementById("answerField4");
+    const answerField5=document.getElementById("answerField5");
+    const answerField6=document.getElementById("answerField6");
+    const answerField7=document.getElementById("answerField7");
+    const answerField8=document.getElementById("answerField8");
+    const answerField9=document.getElementById("answerField9");
+    
+    const updateButtonState=()=>{
+      nextBtn.disabled=answerField1.value.trim()==="" || answerField2.value.trim()==="" || 
+                       answerField3.value.trim()==="" || answerField4.value.trim()==="" || 
+                       answerField5.value.trim()==="" || answerField6.value.trim()==="" || 
+                       answerField7.value.trim()==="" || answerField8.value.trim()==="" || 
+                       answerField9.value.trim()==="";
+    };
+    
+    answerField1.addEventListener("input", updateButtonState);
+    answerField2.addEventListener("input", updateButtonState);
+    answerField3.addEventListener("input", updateButtonState);
+    answerField4.addEventListener("input", updateButtonState);
+    answerField5.addEventListener("input", updateButtonState);
+    answerField6.addEventListener("input", updateButtonState);
+    answerField7.addEventListener("input", updateButtonState);
+    answerField8.addEventListener("input", updateButtonState);
+    answerField9.addEventListener("input", updateButtonState);
+    
+    nextBtn.onclick=()=>{
+      const userVal1=Number(answerField1.value.trim());
+      const userVal2=Number(answerField2.value.trim());
+      const userVal3=Number(answerField3.value.trim());
+      const userVal4=Number(answerField4.value.trim());
+      const userVal5=Number(answerField5.value.trim());
+      const userVal6=Number(answerField6.value.trim());
+      const userVal7=Number(answerField7.value.trim());
+      const userVal8=Number(answerField8.value.trim());
+      const userVal9=Number(answerField9.value.trim());
+      
+      // Calculs cheminement (stations 1 à 5)
+      const correctVal1=Number((alt1 + (lecture1-lecture2)/1000).toFixed(3));
+      const correctVal2=Number((correctVal1 + (q.lecture3-q.lecture4)/1000).toFixed(3));
+      const correctVal3=Number((correctVal2 + (q.lecture5-q.lecture6)/1000).toFixed(3));
+      const correctVal4=Number((correctVal3 + (q.lecture7-q.lecture8)/1000).toFixed(3));
+      const correctVal5=Number((correctVal4 + (q.lecture9-q.lecture10)/1000).toFixed(3));
+      
+      // Calcul plan de visée station 6 (rayonnement)
+      const planVisee=Number((correctVal5 + q.lecture11/1000).toFixed(3));
+      
+      // Calculs rayonnement depuis station 6
+      const correctVal6=Number((planVisee - q.lecture12/1000).toFixed(3));
+      const correctVal7=Number((planVisee - q.lecture13/1000).toFixed(3));
+      const correctVal8=Number((planVisee - q.lecture14/1000).toFixed(3));
+      const correctVal9=Number((planVisee - q.lecture15/1000).toFixed(3));
+      
+      q.correct1=correctVal1;
+      q.correct2=correctVal2;
+      q.correct3=correctVal3;
+      q.correct4=correctVal4;
+      q.correct5=correctVal5;
+      q.correct6=correctVal6;
+      q.correct7=correctVal7;
+      q.correct8=correctVal8;
+      q.correct9=correctVal9;
+      q.planVisee=planVisee;
+      
+      userAnswers[currentIndex]={val1:userVal1, val2:userVal2, val3:userVal3, val4:userVal4, val5:userVal5, val6:userVal6, val7:userVal7, val8:userVal8, val9:userVal9};
+      currentIndex++;
+      if(currentIndex<selectedQuestions.length) renderQuestion();
+      else showResults();
+    };
+  } else if(q.theme==="Nivellement mixte difficile"){
+    const fields = Array.from({length:12},(_,i)=>document.getElementById(`answerField${i+1}`));
+    const updateButtonState=()=>{ nextBtn.disabled=fields.some(f=>!f.value.trim()); };
+    fields.forEach(f=>f.addEventListener("input", updateButtonState));
+
+    nextBtn.onclick=()=>{
+      const values = fields.map(f=>Number(f.value.trim()));
+
+      // Station 1
+      const altPt1 = Number((alt1 + (lecture1-lecture2)/1000).toFixed(3));
+
+      // Station 2 (back sur pt1)
+      const hi2 = Number((altPt1 + q.lecture3/1000).toFixed(3));
+      const altPt2 = Number((hi2 - q.lecture4/1000).toFixed(3));
+      const altPt3 = Number((hi2 - q.lecture5/1000).toFixed(3));
+
+      // Station 3 (back sur pt2)
+      const hi3 = Number((altPt2 + q.lecture6/1000).toFixed(3));
+      const altPt4 = Number((hi3 - q.lecture7/1000).toFixed(3));
+      const altPt5 = Number((hi3 - q.lecture8/1000).toFixed(3));
+
+      // Station 4 (back sur pt5)
+      const hi4 = Number((altPt5 + q.lecture9/1000).toFixed(3));
+      const altPt6 = Number((hi4 - q.lecture10/1000).toFixed(3));
+
+      // Station 5 (back sur pt6)
+      const hi5 = Number((altPt6 + q.lecture11/1000).toFixed(3));
+      const altPt7 = Number((hi5 - q.lecture12/1000).toFixed(3));
+      const altPt8 = Number((hi5 - q.lecture13/1000).toFixed(3));
+      const altPt9_st5 = Number((hi5 - q.lecture14/1000).toFixed(3));
+
+      // Station 6 (back sur pt8)
+      const hi6 = Number((altPt8 + q.lecture15/1000).toFixed(3));
+      const altPt10 = Number((hi6 - q.lecture16/1000).toFixed(3));
+      const altPt11 = Number((hi6 - q.lecture17/1000).toFixed(3));
+      const altPt12 = Number((hi6 - q.lecture18/1000).toFixed(3));
+
+      q.correct1=altPt1;
+      q.correct2=altPt2;
+      q.correct3=altPt3;
+      q.correct4=altPt4;
+      q.correct5=altPt5;
+      q.correct6=altPt6;
+      q.correct7=altPt7;
+      q.correct8=altPt8;
+      q.correct9=altPt9_st5;
+      q.correct10=altPt10;
+      q.correct11=altPt11;
+      q.correct12=altPt12;
+      q.hi6=hi6;
+
+      userAnswers[currentIndex]={
+        val1:values[0], val2:values[1], val3:values[2], val4:values[3], val5:values[4], val6:values[5],
+        val7:values[6], val8:values[7], val9:values[8], val10:values[9], val11:values[10], val12:values[11]
+      };
+      currentIndex++;
+      if(currentIndex<selectedQuestions.length) renderQuestion();
+      else showResults();
+    };
+  } else if(q.theme==="Nivellement mixte complexe"){
+    const fields = Array.from({length:16},(_,i)=>document.getElementById(`answerField${i+1}`));
+    const updateButtonState=()=>{ nextBtn.disabled=fields.some(f=>!f.value.trim()); };
+    fields.forEach(f=>f.addEventListener("input", updateButtonState));
+
+    nextBtn.onclick=()=>{
+      const values = fields.map(f=>Number(f.value.trim()));
+
+      // Station 1 : Réf / 2 / 3
+      const altPt2 = Number((alt1 + (lecture1-lecture2)/1000).toFixed(3));
+      const altPt3 = Number((alt1 + (lecture1-q.lecture3)/1000).toFixed(3));
+
+      // Station 2 : back 3, fores A / 5 / 6
+      const hi2 = Number((altPt3 + q.lecture4/1000).toFixed(3));
+      const altPtA = Number((hi2 - q.lecture5/1000).toFixed(3));
+      const altPt5 = Number((hi2 - q.lecture6/1000).toFixed(3));
+      const altPt6 = Number((hi2 - q.lecture7/1000).toFixed(3));
+
+      // Station 3 : back 5, fores 7 / C / E
+      const hi3 = Number((altPt5 + q.lecture8/1000).toFixed(3));
+      const altPt7 = Number((hi3 - q.lecture9/1000).toFixed(3));
+      const altPtC = Number((hi3 - q.lecture10/1000).toFixed(3));
+      const altPtE = Number((hi3 - q.lecture11/1000).toFixed(3));
+
+      // Station 4 : back A, fores 4 / 8 / 9
+      const hi4 = Number((altPtA + q.lecture12/1000).toFixed(3));
+      const altPt4 = Number((hi4 - q.lecture13/1000).toFixed(3));
+      const altPt8 = Number((hi4 - q.lecture14/1000).toFixed(3));
+      const altPt9 = Number((hi4 - q.lecture15/1000).toFixed(3));
+
+      // Station 5 : back 8, fores F / 10
+      const hi5 = Number((altPt8 + q.lecture16/1000).toFixed(3));
+      const altPtF = Number((hi5 - q.lecture17/1000).toFixed(3));
+      const altPt10 = Number((hi5 - q.lecture18/1000).toFixed(3));
+
+      // Station 6 : back 6, fores B / 20 / 21
+      const hi6 = Number((altPt6 + q.lecture19/1000).toFixed(3));
+      const altPtB = Number((hi6 - q.lecture20/1000).toFixed(3));
+      const altPt20 = Number((hi6 - q.lecture21/1000).toFixed(3));
+      const altPt21 = Number((hi6 - q.lecture22/1000).toFixed(3));
+
+      q.correct1=altPt2;
+      q.correct2=altPt3;
+      q.correct3=altPtA;
+      q.correct4=altPt5;
+      q.correct5=altPt6;
+      q.correct6=altPt7;
+      q.correct7=altPtC;
+      q.correct8=altPtE;
+      q.correct9=altPt4;
+      q.correct10=altPt8;
+      q.correct11=altPt9;
+      q.correct12=altPtF;
+      q.correct13=altPt10;
+      q.correct14=altPtB;
+      q.correct15=altPt20;
+      q.correct16=altPt21;
+
+      userAnswers[currentIndex]={
+        val1:values[0], val2:values[1], val3:values[2], val4:values[3], val5:values[4], val6:values[5],
+        val7:values[6], val8:values[7], val9:values[8], val10:values[9], val11:values[10], val12:values[11],
+        val13:values[12], val14:values[13], val15:values[14], val16:values[15]
+      };
+      currentIndex++;
+      if(currentIndex<selectedQuestions.length) renderQuestion();
+      else showResults();
+    };
+  }
+}
+
+function downloadCSV() {
+  let totalPoints=0;
+  selectedQuestions.forEach((q,i)=>{
+    if(q.theme==="Nivellement mixte - Cheminement + Rayonnement"){
+      totalPoints+=9;
+    } else if(q.theme==="Nivellement mixte difficile"){
+      totalPoints+=12;
+    } else if(q.theme==="Nivellement mixte complexe"){
+      totalPoints+=16;
+    }
+  });
+  
+  let csv="Question;Lecture1 (mm);Lecture2 (mm);Lecture3 (mm);Lecture4 (mm);Lecture5 (mm);Lecture6 (mm);Lecture7 (mm);Lecture8 (mm);Lecture9 (mm);Lecture10 (mm);Lecture11 (mm);Lecture12 (mm);Lecture13 (mm);Lecture14 (mm);Lecture15 (mm);Lecture16 (mm);Lecture17 (mm);Lecture18 (mm);Altitude Ref (m);Réponse élève;Réponse correcte;Points max\n";
+  selectedQuestions.forEach((q,i)=>{
+    if(q.theme==="Nivellement mixte - Cheminement + Rayonnement"){
+      csv+=`${i+1}-Pt1;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val1.toFixed(3)};${q.correct1.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt2;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val2.toFixed(3)};${q.correct2.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt3;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val3.toFixed(3)};${q.correct3.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt4;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val4.toFixed(3)};${q.correct4.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt5;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val5.toFixed(3)};${q.correct5.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt6;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val6.toFixed(3)};${q.correct6.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt7;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val7.toFixed(3)};${q.correct7.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt8;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val8.toFixed(3)};${q.correct8.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt9;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.alt1};${userAnswers[i].val9.toFixed(3)};${q.correct9.toFixed(3)};1\n`;
+    } else if(q.theme==="Nivellement mixte difficile"){
+      csv+=`${i+1}-Pt1;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val1.toFixed(3)};${q.correct1.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt2;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val2.toFixed(3)};${q.correct2.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt3;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val3.toFixed(3)};${q.correct3.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt4;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val4.toFixed(3)};${q.correct4.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt5;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val5.toFixed(3)};${q.correct5.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt6;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val6.toFixed(3)};${q.correct6.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt7;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val7.toFixed(3)};${q.correct7.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt8;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val8.toFixed(3)};${q.correct8.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt9;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val9.toFixed(3)};${q.correct9.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt10;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val10.toFixed(3)};${q.correct10.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt11;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val11.toFixed(3)};${q.correct11.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt12;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.alt1};${userAnswers[i].val12.toFixed(3)};${q.correct12.toFixed(3)};1\n`;
+    } else if(q.theme==="Nivellement mixte complexe"){
+      csv+=`${i+1}-Pt2;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val1.toFixed(3)};${q.correct1.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt3;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val2.toFixed(3)};${q.correct2.toFixed(3)};1\n`;
+      csv+=`${i+1}-PtA;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val3.toFixed(3)};${q.correct3.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt5;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val4.toFixed(3)};${q.correct4.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt6;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val5.toFixed(3)};${q.correct5.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt7;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val6.toFixed(3)};${q.correct6.toFixed(3)};1\n`;
+      csv+=`${i+1}-PtC;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val7.toFixed(3)};${q.correct7.toFixed(3)};1\n`;
+      csv+=`${i+1}-PtE;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val8.toFixed(3)};${q.correct8.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt4;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val9.toFixed(3)};${q.correct9.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt8;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val10.toFixed(3)};${q.correct10.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt9;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val11.toFixed(3)};${q.correct11.toFixed(3)};1\n`;
+      csv+=`${i+1}-PtF;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val12.toFixed(3)};${q.correct12.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt10;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val13.toFixed(3)};${q.correct13.toFixed(3)};1\n`;
+      csv+=`${i+1}-PtB;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val14.toFixed(3)};${q.correct14.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt20;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val15.toFixed(3)};${q.correct15.toFixed(3)};1\n`;
+      csv+=`${i+1}-Pt21;${q.lecture1};${q.lecture2};${q.lecture3};${q.lecture4};${q.lecture5};${q.lecture6};${q.lecture7};${q.lecture8};${q.lecture9};${q.lecture10};${q.lecture11};${q.lecture12};${q.lecture13};${q.lecture14};${q.lecture15};${q.lecture16};${q.lecture17};${q.lecture18};${q.lecture19};${q.lecture20};${q.lecture21};${q.lecture22};${q.alt1};${userAnswers[i].val16.toFixed(3)};${q.correct16.toFixed(3)};1\n`;
+    }
+  });
+  csv+=`;;;;;;;;;;;;;;;;;;Note obtenue;${score}\n`;
+  csv+=`;;;;;;;;;;;;;;;;;;Maximum possible;${totalPoints}\n`;
+
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=`resultat_nivellement_mixte_${candidateName}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function sendResultToSheet(){
+  let totalPoints=0;
+  selectedQuestions.forEach((q)=>{
+    if(q.theme==="Nivellement mixte - Cheminement + Rayonnement"){
+      totalPoints+=9;
+    } else if(q.theme==="Nivellement mixte difficile"){
+      totalPoints+=12;
+    } else if(q.theme==="Nivellement mixte complexe"){
+      totalPoints+=16;
+    }
+  });
+  
+  const noteSur20 = ((score / totalPoints) * 20).toFixed(2);
+  
+  const data={
+    name:candidateName,
+    score:score,
+    maxPoints:totalPoints,
+    noteSur20:noteSur20,
+    quizName:quizName
+  };
+
+  const loadingDiv=document.getElementById("sendingStatus");
+  if(loadingDiv){
+    loadingDiv.style.display="block";
+    loadingDiv.innerHTML='<p style="color:#ff6600; font-weight:bold;">⏳ Envoi des résultats en cours...</p>';
+  }
+
+  fetch("https://script.google.com/macros/s/AKfycbwgYXOFLqnfobKWdGwTs9TH2iKBNQfS-rE6NR6Z5gyRcn3wV2omoBG5xhTzkZIS8Akp/exec",{
+    method:"POST",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify(data)
+  }).then(res=>res.json()).then(res=>{
+    if(res.status==="success"){
+      if(loadingDiv){
+        loadingDiv.innerHTML='<p style="color:#388e3c; font-weight:bold;">✅ Résultats enregistrés avec succès !</p>';
+      }
+    } else {
+      if(loadingDiv){
+        loadingDiv.innerHTML='<p style="color:#d32f2f; font-weight:bold;">❌ Erreur lors de l\'envoi</p>';
+      }
+    }
+  }).catch(err=>{
+    console.error("Erreur d'envoi :",err);
+    if(loadingDiv){
+      loadingDiv.innerHTML='<p style="color:#d32f2f; font-weight:bold;">❌ Erreur de connexion</p>';
+    }
+  });
+}
+
+function showResults(){
+  let totalPoints=0;
+  score=0;
+  
+  selectedQuestions.forEach((q,i)=>{
+    if(q.theme==="Nivellement mixte - Cheminement + Rayonnement"){
+      totalPoints+=9;
+      if(userAnswers[i].val1===q.correct1) score++;
+      if(userAnswers[i].val2===q.correct2) score++;
+      if(userAnswers[i].val3===q.correct3) score++;
+      if(userAnswers[i].val4===q.correct4) score++;
+      if(userAnswers[i].val5===q.correct5) score++;
+      if(userAnswers[i].val6===q.correct6) score++;
+      if(userAnswers[i].val7===q.correct7) score++;
+      if(userAnswers[i].val8===q.correct8) score++;
+      if(userAnswers[i].val9===q.correct9) score++;
+    } else if(q.theme==="Nivellement mixte difficile"){
+      totalPoints+=12;
+      if(userAnswers[i].val1===q.correct1) score++;
+      if(userAnswers[i].val2===q.correct2) score++;
+      if(userAnswers[i].val3===q.correct3) score++;
+      if(userAnswers[i].val4===q.correct4) score++;
+      if(userAnswers[i].val5===q.correct5) score++;
+      if(userAnswers[i].val6===q.correct6) score++;
+      if(userAnswers[i].val7===q.correct7) score++;
+      if(userAnswers[i].val8===q.correct8) score++;
+      if(userAnswers[i].val9===q.correct9) score++;
+      if(userAnswers[i].val10===q.correct10) score++;
+      if(userAnswers[i].val11===q.correct11) score++;
+      if(userAnswers[i].val12===q.correct12) score++;
+    } else if(q.theme==="Nivellement mixte complexe"){
+      totalPoints+=16;
+      if(userAnswers[i].val1===q.correct1) score++;
+      if(userAnswers[i].val2===q.correct2) score++;
+      if(userAnswers[i].val3===q.correct3) score++;
+      if(userAnswers[i].val4===q.correct4) score++;
+      if(userAnswers[i].val5===q.correct5) score++;
+      if(userAnswers[i].val6===q.correct6) score++;
+      if(userAnswers[i].val7===q.correct7) score++;
+      if(userAnswers[i].val8===q.correct8) score++;
+      if(userAnswers[i].val9===q.correct9) score++;
+      if(userAnswers[i].val10===q.correct10) score++;
+      if(userAnswers[i].val11===q.correct11) score++;
+      if(userAnswers[i].val12===q.correct12) score++;
+      if(userAnswers[i].val13===q.correct13) score++;
+      if(userAnswers[i].val14===q.correct14) score++;
+      if(userAnswers[i].val15===q.correct15) score++;
+      if(userAnswers[i].val16===q.correct16) score++;
+    }
+  });
+
+  const percentage=Math.round((score/totalPoints)*100);
+  let scoreColor="#d32f2f";
+  if(percentage>=80) scoreColor="#388e3c";
+  else if(percentage>=50) scoreColor="#f57c00";
+  
+  const noteSur20 = ((score / totalPoints) * 20).toFixed(2);
+  const isEvaluation = testType === "Évaluation";
+
+  let tableHTML=`<table style="margin-top:20px;">
+  <thead><tr style="background:#f0f0f0;">
+  <th>Question</th><th>Station</th><th>Lecture arrière (mm)</th><th>Lecture avant (mm)</th><th>Dénivelé (mm)</th><th>Altitude calculée (m)</th><th>Altitude correcte (m)</th><th>Résultat</th>
+  </tr></thead><tbody>`;
+
+  selectedQuestions.forEach((q,i)=>{
+    if(q.theme==="Nivellement mixte - Cheminement + Rayonnement"){
+      const denivel1 = (q.lecture1-q.lecture2).toFixed(0);
+      const denivel2 = (q.lecture3-q.lecture4).toFixed(0);
+      const denivel3 = (q.lecture5-q.lecture6).toFixed(0);
+      const denivel4 = (q.lecture7-q.lecture8).toFixed(0);
+      const denivel5 = (q.lecture9-q.lecture10).toFixed(0);
+      const denivel6 = (q.lecture12).toFixed(0);
+      const denivel7 = (q.lecture13).toFixed(0);
+      const denivel8 = (q.lecture14).toFixed(0);
+      const denivel9 = (q.lecture15).toFixed(0);
+      
+      const isError1 = userAnswers[i].val1.toFixed(3) !== q.correct1.toFixed(3);
+      const isError2 = userAnswers[i].val2.toFixed(3) !== q.correct2.toFixed(3);
+      const isError3 = userAnswers[i].val3.toFixed(3) !== q.correct3.toFixed(3);
+      const isError4 = userAnswers[i].val4.toFixed(3) !== q.correct4.toFixed(3);
+      const isError5 = userAnswers[i].val5.toFixed(3) !== q.correct5.toFixed(3);
+      const isError6 = userAnswers[i].val6.toFixed(3) !== q.correct6.toFixed(3);
+      const isError7 = userAnswers[i].val7.toFixed(3) !== q.correct7.toFixed(3);
+      const isError8 = userAnswers[i].val8.toFixed(3) !== q.correct8.toFixed(3);
+      const isError9 = userAnswers[i].val9.toFixed(3) !== q.correct9.toFixed(3);
+      
+      const result1 = isError1 ? '✗' : '✓';
+      const result2 = isError2 ? '✗' : '✓';
+      const result3 = isError3 ? '✗' : '✓';
+      const result4 = isError4 ? '✗' : '✓';
+      const result5 = isError5 ? '✗' : '✓';
+      const result6 = isError6 ? '✗' : '✓';
+      const result7 = isError7 ? '✗' : '✓';
+      const result8 = isError8 ? '✗' : '✓';
+      const result9 = isError9 ? '✗' : '✓';
+      
+      const style1 = isError1 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      const style2 = isError2 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      const style3 = isError3 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      const style4 = isError4 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      const style5 = isError5 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      const style6 = isError6 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      const style7 = isError7 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      const style8 = isError8 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      const style9 = isError9 ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+      
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 1 → Point 1</td><td>${q.lecture1}</td><td>${q.lecture2}</td><td>${denivel1}</td><td ${style1}>${userAnswers[i].val1.toFixed(3)}</td><td>${q.correct1.toFixed(3)}</td><td>${result1}</td>
+      </tr>`;
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 2 → Point 2</td><td>${q.lecture3}</td><td>${q.lecture4}</td><td>${denivel2}</td><td ${style2}>${userAnswers[i].val2.toFixed(3)}</td><td>${q.correct2.toFixed(3)}</td><td>${result2}</td>
+      </tr>`;
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 3 → Point 3</td><td>${q.lecture5}</td><td>${q.lecture6}</td><td>${denivel3}</td><td ${style3}>${userAnswers[i].val3.toFixed(3)}</td><td>${q.correct3.toFixed(3)}</td><td>${result3}</td>
+      </tr>`;
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 4 → Point 4</td><td>${q.lecture7}</td><td>${q.lecture8}</td><td>${denivel4}</td><td ${style4}>${userAnswers[i].val4.toFixed(3)}</td><td>${q.correct4.toFixed(3)}</td><td>${result4}</td>
+      </tr>`;
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 5 → Point 5</td><td>${q.lecture9}</td><td>${q.lecture10}</td><td>${denivel5}</td><td ${style5}>${userAnswers[i].val5.toFixed(3)}</td><td>${q.correct5.toFixed(3)}</td><td>${result5}</td>
+      </tr>`;
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 6 → Point 6</td><td>${q.lecture11}</td><td>${q.lecture12}</td><td>${denivel6}</td><td ${style6}>${userAnswers[i].val6.toFixed(3)}</td><td>${q.correct6.toFixed(3)}</td><td>${result6}</td>
+      </tr>`;
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 6 → Point 7</td><td>${q.lecture11}</td><td>${q.lecture13}</td><td>${denivel7}</td><td ${style7}>${userAnswers[i].val7.toFixed(3)}</td><td>${q.correct7.toFixed(3)}</td><td>${result7}</td>
+      </tr>`;
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 6 → Point 8</td><td>${q.lecture11}</td><td>${q.lecture14}</td><td>${denivel8}</td><td ${style8}>${userAnswers[i].val8.toFixed(3)}</td><td>${q.correct8.toFixed(3)}</td><td>${result8}</td>
+      </tr>`;
+      tableHTML+=`<tr>
+      <td>${i+1}</td><td>Station 6 → Point 9</td><td>${q.lecture11}</td><td>${q.lecture15}</td><td>${denivel9}</td><td ${style9}>${userAnswers[i].val9.toFixed(3)}</td><td>${q.correct9.toFixed(3)}</td><td>${result9}</td>
+      </tr>`;
+    } else if(q.theme==="Nivellement mixte difficile"){
+      const makeRow=(label,bs,fs,deniv,val,correct,res,isRay=false)=>{
+        const style = res==='✗' ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+        return `<tr${isRay? ' style="background:#f9f9ff;"':''}>
+          <td>${i+1}</td><td>${label}</td><td>${bs}</td><td>${fs}</td><td>${deniv}</td><td ${style}>${val}</td><td>${correct}</td><td>${res}</td>
+        </tr>`;
+      };
+      const den1 = (q.lecture1-q.lecture2).toFixed(0);
+      const den2 = (q.lecture3-q.lecture4).toFixed(0);
+      const den3 = (q.lecture3-q.lecture5).toFixed(0);
+      const den4 = (q.lecture6-q.lecture7).toFixed(0);
+      const den5 = (q.lecture6-q.lecture8).toFixed(0);
+      const den6 = (q.lecture9-q.lecture10).toFixed(0);
+      const den7 = (q.lecture11-q.lecture12).toFixed(0);
+      const den8 = (q.lecture11-q.lecture13).toFixed(0);
+      const den9 = (q.lecture11-q.lecture14).toFixed(0);
+      const den10 = (q.lecture15-q.lecture16).toFixed(0);
+      const den11 = (q.lecture15-q.lecture17).toFixed(0);
+      const den12 = (q.lecture15-q.lecture18).toFixed(0);
+
+      const res1 = userAnswers[i].val1.toFixed(3)===q.correct1.toFixed(3)?'✓':'✗';
+      const res2 = userAnswers[i].val2.toFixed(3)===q.correct2.toFixed(3)?'✓':'✗';
+      const res3 = userAnswers[i].val3.toFixed(3)===q.correct3.toFixed(3)?'✓':'✗';
+      const res4 = userAnswers[i].val4.toFixed(3)===q.correct4.toFixed(3)?'✓':'✗';
+      const res5 = userAnswers[i].val5.toFixed(3)===q.correct5.toFixed(3)?'✓':'✗';
+      const res6 = userAnswers[i].val6.toFixed(3)===q.correct6.toFixed(3)?'✓':'✗';
+      const res7 = userAnswers[i].val7.toFixed(3)===q.correct7.toFixed(3)?'✓':'✗';
+      const res8 = userAnswers[i].val8.toFixed(3)===q.correct8.toFixed(3)?'✓':'✗';
+      const res9 = userAnswers[i].val9.toFixed(3)===q.correct9.toFixed(3)?'✓':'✗';
+      const res10 = userAnswers[i].val10.toFixed(3)===q.correct10.toFixed(3)?'✓':'✗';
+      const res11 = userAnswers[i].val11.toFixed(3)===q.correct11.toFixed(3)?'✓':'✗';
+      const res12 = userAnswers[i].val12.toFixed(3)===q.correct12.toFixed(3)?'✓':'✗';
+
+      tableHTML+=makeRow("St1 → Pt1", q.lecture1, q.lecture2, den1, userAnswers[i].val1.toFixed(3), q.correct1.toFixed(3), res1);
+      tableHTML+=makeRow("St2 → Pt2", q.lecture3, q.lecture4, den2, userAnswers[i].val2.toFixed(3), q.correct2.toFixed(3), res2);
+      tableHTML+=makeRow("St2 → Pt3", q.lecture3, q.lecture5, den3, userAnswers[i].val3.toFixed(3), q.correct3.toFixed(3), res3);
+      tableHTML+=makeRow("St3 → Pt4", q.lecture6, q.lecture7, den4, userAnswers[i].val4.toFixed(3), q.correct4.toFixed(3), res4);
+      tableHTML+=makeRow("St3 → Pt5", q.lecture6, q.lecture8, den5, userAnswers[i].val5.toFixed(3), q.correct5.toFixed(3), res5);
+      tableHTML+=makeRow("St4 → Pt6", q.lecture9, q.lecture10, den6, userAnswers[i].val6.toFixed(3), q.correct6.toFixed(3), res6);
+      tableHTML+=makeRow("St5 → Pt7", q.lecture11, q.lecture12, den7, userAnswers[i].val7.toFixed(3), q.correct7.toFixed(3), res7,true);
+      tableHTML+=makeRow("St5 → Pt8", q.lecture11, q.lecture13, den8, userAnswers[i].val8.toFixed(3), q.correct8.toFixed(3), res8,true);
+      tableHTML+=makeRow("St5 → Pt9", q.lecture11, q.lecture14, den9, userAnswers[i].val9.toFixed(3), q.correct9.toFixed(3), res9,true);
+      tableHTML+=makeRow("St6 → Pt10", q.lecture15, q.lecture16, den10, userAnswers[i].val10.toFixed(3), q.correct10.toFixed(3), res10,false);
+      tableHTML+=makeRow("St6 → Pt11", q.lecture15, q.lecture17, den11, userAnswers[i].val11.toFixed(3), q.correct11.toFixed(3), res11,false);
+      tableHTML+=makeRow("St6 → Pt12", q.lecture15, q.lecture18, den12, userAnswers[i].val12.toFixed(3), q.correct12.toFixed(3), res12,false);
+    } else if(q.theme==="Nivellement mixte complexe"){
+      const den1 = (q.lecture1-q.lecture2).toFixed(0);
+      const den2 = (q.lecture1-q.lecture3).toFixed(0);
+      const den3 = (q.lecture4-q.lecture5).toFixed(0);
+      const den4 = (q.lecture4-q.lecture6).toFixed(0);
+      const den5 = (q.lecture4-q.lecture7).toFixed(0);
+      const den6 = (q.lecture8-q.lecture9).toFixed(0);
+      const den7 = (q.lecture8-q.lecture10).toFixed(0);
+      const den8 = (q.lecture8-q.lecture11).toFixed(0);
+      const den9 = (q.lecture12-q.lecture13).toFixed(0);
+      const den10 = (q.lecture12-q.lecture14).toFixed(0);
+      const den11 = (q.lecture12-q.lecture15).toFixed(0);
+      const den12 = (q.lecture16-q.lecture17).toFixed(0);
+      const den13 = (q.lecture16-q.lecture18).toFixed(0);
+      const den14 = (q.lecture19-q.lecture20).toFixed(0);
+      const den15 = (q.lecture19-q.lecture21).toFixed(0);
+      const den16 = (q.lecture19-q.lecture22).toFixed(0);
+
+      const makeRowComplex=(label,bs,fs,deniv,val,correct,res,isRay=false)=>{
+        const style = res==='✗' ? 'style="background-color:#ffcccc;"' : 'style="background-color:#ccffcc;"';
+        return `<tr${isRay? ' style="background:#f9f9ff;"':''}>
+          <td>${i+1}</td><td>${label}</td><td>${bs}</td><td>${fs}</td><td>${deniv}</td><td ${style}>${val}</td><td>${correct}</td><td>${res}</td>
+        </tr>`;
+      };
+
+      const res1 = userAnswers[i].val1.toFixed(3)===q.correct1.toFixed(3)?'✓':'✗';
+      const res2 = userAnswers[i].val2.toFixed(3)===q.correct2.toFixed(3)?'✓':'✗';
+      const res3 = userAnswers[i].val3.toFixed(3)===q.correct3.toFixed(3)?'✓':'✗';
+      const res4 = userAnswers[i].val4.toFixed(3)===q.correct4.toFixed(3)?'✓':'✗';
+      const res5 = userAnswers[i].val5.toFixed(3)===q.correct5.toFixed(3)?'✓':'✗';
+      const res6 = userAnswers[i].val6.toFixed(3)===q.correct6.toFixed(3)?'✓':'✗';
+      const res7 = userAnswers[i].val7.toFixed(3)===q.correct7.toFixed(3)?'✓':'✗';
+      const res8 = userAnswers[i].val8.toFixed(3)===q.correct8.toFixed(3)?'✓':'✗';
+      const res9 = userAnswers[i].val9.toFixed(3)===q.correct9.toFixed(3)?'✓':'✗';
+      const res10 = userAnswers[i].val10.toFixed(3)===q.correct10.toFixed(3)?'✓':'✗';
+      const res11 = userAnswers[i].val11.toFixed(3)===q.correct11.toFixed(3)?'✓':'✗';
+      const res12 = userAnswers[i].val12.toFixed(3)===q.correct12.toFixed(3)?'✓':'✗';
+      const res13 = userAnswers[i].val13.toFixed(3)===q.correct13.toFixed(3)?'✓':'✗';
+      const res14 = userAnswers[i].val14.toFixed(3)===q.correct14.toFixed(3)?'✓':'✗';
+      const res15 = userAnswers[i].val15.toFixed(3)===q.correct15.toFixed(3)?'✓':'✗';
+      const res16 = userAnswers[i].val16.toFixed(3)===q.correct16.toFixed(3)?'✓':'✗';
+
+      tableHTML+=makeRowComplex("St1 → Pt2", q.lecture1, q.lecture2, den1, userAnswers[i].val1.toFixed(3), q.correct1.toFixed(3), res1);
+      tableHTML+=makeRowComplex("St1 → Pt3", q.lecture1, q.lecture3, den2, userAnswers[i].val2.toFixed(3), q.correct2.toFixed(3), res2);
+      tableHTML+=makeRowComplex("St2 → PtA", q.lecture4, q.lecture5, den3, userAnswers[i].val3.toFixed(3), q.correct3.toFixed(3), res3);
+      tableHTML+=makeRowComplex("St2 → Pt5", q.lecture4, q.lecture6, den4, userAnswers[i].val4.toFixed(3), q.correct4.toFixed(3), res4);
+      tableHTML+=makeRowComplex("St2 → Pt6", q.lecture4, q.lecture7, den5, userAnswers[i].val5.toFixed(3), q.correct5.toFixed(3), res5);
+      tableHTML+=makeRowComplex("St3 → Pt7", q.lecture8, q.lecture9, den6, userAnswers[i].val6.toFixed(3), q.correct6.toFixed(3), res6);
+      tableHTML+=makeRowComplex("St3 → PtC", q.lecture8, q.lecture10, den7, userAnswers[i].val7.toFixed(3), q.correct7.toFixed(3), res7);
+      tableHTML+=makeRowComplex("St3 → PtE", q.lecture8, q.lecture11, den8, userAnswers[i].val8.toFixed(3), q.correct8.toFixed(3), res8);
+      tableHTML+=makeRowComplex("St4 → Pt4", q.lecture12, q.lecture13, den9, userAnswers[i].val9.toFixed(3), q.correct9.toFixed(3), res9);
+      tableHTML+=makeRowComplex("St4 → Pt8", q.lecture12, q.lecture14, den10, userAnswers[i].val10.toFixed(3), q.correct10.toFixed(3), res10);
+      tableHTML+=makeRowComplex("St4 → Pt9", q.lecture12, q.lecture15, den11, userAnswers[i].val11.toFixed(3), q.correct11.toFixed(3), res11);
+      tableHTML+=makeRowComplex("St5 → PtF", q.lecture16, q.lecture17, den12, userAnswers[i].val12.toFixed(3), q.correct12.toFixed(3), res12,true);
+      tableHTML+=makeRowComplex("St5 → Pt10", q.lecture16, q.lecture18, den13, userAnswers[i].val13.toFixed(3), q.correct13.toFixed(3), res13,true);
+      tableHTML+=makeRowComplex("St6 → PtB", q.lecture19, q.lecture20, den14, userAnswers[i].val14.toFixed(3), q.correct14.toFixed(3), res14,false);
+      tableHTML+=makeRowComplex("St6 → Pt20", q.lecture19, q.lecture21, den15, userAnswers[i].val15.toFixed(3), q.correct15.toFixed(3), res15,false);
+      tableHTML+=makeRowComplex("St6 → Pt21", q.lecture19, q.lecture22, den16, userAnswers[i].val16.toFixed(3), q.correct16.toFixed(3), res16,false);
+    }
+  });
+  tableHTML+=`</tbody></table>`;
+
+  DOM.quiz.innerHTML=`<div class="question">
+  <p>${i18n.candidate} <strong>${candidateName}</strong></p>
+  <p>${i18n.result} <strong style="color:${scoreColor}">${score} / ${totalPoints} points (${percentage}%)</strong></p>
+  <p style="margin-top:10px; font-size:1.3rem;">📊 Note : <strong style="color:${scoreColor}; font-size:1.5rem;">${noteSur20} / 20</strong></p>
+  ${tableHTML}
+  <div id="sendingStatus" style="display:none; margin-top:15px;"></div>
+  </div>`;
+
+  sendResultToSheet();
+  DOM.restartBtn.style.display="inline-block";
+}
+
+function showIntro(){
+  DOM.intro.style.display="flex";
+  DOM.quiz.style.display="none";
+  DOM.restartBtn.style.display="none";
+  DOM.quizSubtitle.textContent="";
+  DOM.pageTitle.textContent="Le nivellement mixte (cheminement + rayonnement)";
+  DOM.testTypeSelection.style.display="block";
+  DOM.nameSelection.style.display="none";
+  DOM.candidateName.value="";
+  DOM.startBtn.disabled=true;
+  testType = "";
+  questionCount = 10;
+  themeFilter = null;
+}
+
+function selectTestType(type, count, theme = null){
+  testType = type;
+  questionCount = count;
+  themeFilter = theme;
+  DOM.pageTitle.textContent = type.toUpperCase();
+  DOM.testTypeSelection.style.display="none";
+  DOM.nameSelection.style.display="block";
+  DOM.candidateName.focus();
+  DOM.candidateName.oninput=()=>{ DOM.startBtn.disabled=DOM.candidateName.value.trim().length<2; };
+}
+
+function startQuiz(){
+  candidateName=DOM.candidateName.value.trim().toUpperCase();
+  if(!candidateName) return;
+  const isAuthorized=Object.values(AUTHORIZED_CANDIDATES).some(group=>group.includes(candidateName));
+  if(!isAuthorized){ alert("❌ Accès refusé. Votre nom n'est pas autorisé pour faire ce test."); DOM.candidateName.value=""; DOM.startBtn.disabled=true; return; }
+  DOM.intro.style.display="none";
+  DOM.quiz.style.display="block";
+  quizName=testType;
+  selectedQuestions=getRandomQuestionsIntercalated(themeFilter);
+  currentIndex=0;
+  userAnswers=new Array(selectedQuestions.length).fill(0);
+  DOM.quizSubtitle.textContent=i18n.questions.replace("{count}",selectedQuestions.length);
+  renderQuestion();
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  showIntro();
+  DOM.startBtn.onclick=startQuiz;
+  DOM.restartBtn.onclick=showIntro;
+  DOM.exercice3Btn.onclick=()=>selectTestType("Exercice 1", 1, "Nivellement mixte - Cheminement + Rayonnement");
+  DOM.exercice2Btn.onclick=()=>selectTestType("Exercice 2", 1, "Nivellement mixte difficile");
+  DOM.exercice1Btn.onclick=()=>selectTestType("Exercice 3", 1, "Nivellement mixte complexe");
+  DOM.evaluationBtn.onclick=()=>{
+    const randomThemes = ["Nivellement mixte difficile", "Nivellement mixte complexe"];
+    const selectedTheme = randomThemes[Math.floor(Math.random() * randomThemes.length)];
+    selectTestType("Évaluation", 1, selectedTheme);
+  };
+});
+</script>
+</body>
+</html>
